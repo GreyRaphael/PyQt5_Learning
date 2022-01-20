@@ -209,6 +209,10 @@ example.py
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+import pymongo
+
+CLI=pymongo.MongoClient('mongodb://grey:xxxxxx@localhost:27017')
+COLLECTION=CLI.irradiation.data
 
 class Ui_widgetWin(object):
     def setupUi(self, widgetWin):
@@ -266,24 +270,30 @@ class Ui_widgetWin(object):
         self.buttonLogin.setText(_translate("widgetWin", "OK(&O)"))
 
     def check_login(self):
-        if self.lineEditUser.text()=="gewei" and self.lineEditPassword.text()=="123456":
-            # login success
-            widgetWin.close()
-            
-            d=QtWidgets.QDialog()
-            d.setWindowTitle('Congratulation!')
-            d.setWindowFlags(QtCore.Qt.Dialog | QtCore.Qt.CustomizeWindowHint | QtCore.Qt.WindowTitleHint|QtCore.Qt.WindowCloseButtonHint)
+        result=COLLECTION.find_one({'name_id': self.lineEditUser.text()})
+        if result:
+            # username in database
+            if result['name_id']==self.lineEditPassword.text():
+                # password right
+                # login success
+                widgetWin.close()
+                
+                d=QtWidgets.QDialog()
+                d.setWindowTitle('Congratulation!')
+                d.setWindowFlags(QtCore.Qt.Dialog | QtCore.Qt.CustomizeWindowHint | QtCore.Qt.WindowTitleHint|QtCore.Qt.WindowCloseButtonHint)
 
-            d.resize(300, 100)
-            l1=QtWidgets.QLabel(d)
-            l1.move(10, 10)
-            l1.setText('Login Success!')
-            d.setWindowModality(QtCore.Qt.ApplicationModal)
-            d.exec_()
-
+                d.resize(300, 100)
+                l1=QtWidgets.QLabel(d)
+                l1.move(10, 10)
+                l1.setText('Login Success!')
+                d.setWindowModality(QtCore.Qt.ApplicationModal)
+                d.exec_()
+            else:
+                # password wrong
+                QtWidgets.QMessageBox.information(widgetWin, "Information", "Password Wrong!")
         else:
-            # login fail
-            QtWidgets.QMessageBox.information(widgetWin, "Information", 'Password Wrong!')
+            # username not in database
+            QtWidgets.QMessageBox.information(widgetWin, "Information", "User not exist!")
 
 import res_rc
 
