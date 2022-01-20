@@ -2,6 +2,7 @@
 
 - [PyQt5 Introduction](#pyqt5-introduction)
   - [simple example with QtDesigner](#simple-example-with-qtdesigner)
+  - [PyQt5 with matplotlib](#pyqt5-with-matplotlib)
 
 ## simple example with QtDesigner
 
@@ -305,4 +306,33 @@ if __name__ == "__main__":
     ui.setupUi(widgetWin)
     widgetWin.show()
     sys.exit(app.exec_())
+```
+
+## PyQt5 with matplotlib
+
+```py
+import random
+import sys
+from PyQt5 import QtWidgets
+import matplotlib.pyplot as plt 
+
+plt.ion()
+
+class MainWindow(QtWidgets.QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.move(100, 100)
+        self.btn=QtWidgets.QPushButton("OK", self)
+        self.btn.clicked.connect(self.update_plot)
+        self.show()
+
+    def update_plot(self):
+        plt.cla()
+        plt.plot(range(10), random.sample(range(100), 10), 'ro-')
+        plt.show()
+
+if __name__ == "__main__":
+    app = QtWidgets.QApplication(sys.argv)
+    w = MainWindow()
+    app.exec_()
 ```
