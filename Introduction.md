@@ -3,6 +3,7 @@
 - [PyQt5 Introduction](#pyqt5-introduction)
   - [simple example with QtDesigner](#simple-example-with-qtdesigner)
   - [PyQt5 with matplotlib](#pyqt5-with-matplotlib)
+  - [PyQt5 Multiple windows](#pyqt5-multiple-windows)
 
 ## simple example with QtDesigner
 
@@ -335,4 +336,282 @@ if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     w = MainWindow()
     app.exec_()
+```
+
+## PyQt5 Multiple windows
+
+目标：窗口1实现button, tableview; 窗口2实现tableview右键编辑功能; 两个窗口数据共享
+> ![](img/multi-win01.jpg)
+
+```bash
+main.py
+models.py
+MongoOperation.py
+```
+
+```py
+# main.py
+import sys
+from PyQt5 import QtWidgets, QtGui, QtCore
+import MongoOperation
+from models import MyModel
+
+
+class AnotherWindow(QtWidgets.QWidget):
+    def __init__(self, model):
+        self._model=model
+        super().__init__()
+        self.move(800, 100)
+        layout=QtWidgets.QVBoxLayout()
+        self.tableView=QtWidgets.QTableView()
+        layout.addWidget(self.tableView)
+        self.setLayout(layout)
+
+        self.tableView.setModel(self._model)
+        self.tableView.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.tableView.customContextMenuRequested.connect(self.context_menu)
+
+    def context_menu(self):
+        menu=QtWidgets.QMenu()
+        # context_menu: add
+        menu_add=menu.addAction('+ Add New Row')
+        menu_add.triggered.connect(self.add_action)
+
+        # context_menu: add document(dictionary)
+        menu_add_doc=menu.addAction('+ Add Document(Dictionary)')
+        menu_add_doc.triggered.connect(self.add_doc_action)
+
+        # context_menu: delete
+        selected_indexes=self.tableView.selectedIndexes()
+        if selected_indexes:
+            menu_del=menu.addAction('- Delete Selected Rows')
+            menu_del.triggered.connect(lambda : self._model.custom_delete_rows(selected_indexes))
+        
+
+        cursor=QtGui.QCursor()
+        menu.exec_(cursor.pos())
+
+    def add_action(self):
+        self._model.custom_add_row()
+        self.tableView.scrollToBottom()
+
+    def add_doc_action(self):
+        result, ok=QtWidgets.QInputDialog.getMultiLineText(self, 'Input Dictionary', 'Add Dictionary', '{\n\n\n\n}')
+        if ok:
+            try:
+                data=eval(result)
+            except Exception as e:
+                msgBox=QtWidgets.QMessageBox(QtWidgets.QMessageBox.Warning, 'Failed', 'Must Add Valid Dictionary, Try Again!')
+                msgBox.exec_()
+            else:
+                if isinstance(data, dict):
+
+                    msgBox=QtWidgets.QMessageBox(QtWidgets.QMessageBox.Information, 'Success', 'Add Document Success!')
+                    msgBox.exec_()
+
+                    self._model.custom_add_document(data)
+                    self.tableView.scrollToBottom()
+                    # 刷新模型，更改表结构
+                    self._model.beginResetModel()
+                    self._model.endResetModel()
+                else:
+                    msgBox=QtWidgets.QMessageBox(QtWidgets.QMessageBox.Warning, 'Failed', 'Must Add Dictionary, Try Again!')
+                    msgBox.exec_()
+
+
+
+class MainWindow(QtWidgets.QWidget):
+    def __init__(self):
+        super().__init__()
+        self.w = None  # No external window yet.
+
+        layout=QtWidgets.QVBoxLayout()
+        self.btn1=QtWidgets.QPushButton('Go to AnotherWindow')
+        self.tableV=QtWidgets.QTableView()
+        layout.addWidget(self.btn1)
+        layout.addWidget(self.tableV)
+        self.setLayout(layout)
+
+        self.btn1.clicked.connect(self.show_new_window)
+        
+        data_list=MongoOperation.get_data_list()
+        self._model=MyModel(data_list)
+        self.tableV.setModel(self._model)
+
+
+    def show_new_window(self):
+        if self.w is None:
+            self.w = AnotherWindow(self._model)
+            self.w.show()
+        else:
+            # # no discard window
+            # self.w.hide()
+
+            # discard window
+            self.w.close()  # Close window.
+            self.w = None  # Discard reference.
+
+if __name__ == "__main__":
+    app = QtWidgets.QApplication(sys.argv)
+    w = MainWindow()
+    w.show()
+    app.exec_()
+```
+
+```py
+# models.py
+from PyQt5 import QtCore, QtGui
+import MongoOperation
+
+
+class MyModel(QtCore.QAbstractTableModel):
+    def __init__(self, dict_list):
+        super().__init__()
+        self._data=dict_list
+        self._columns=None
+
+    def rowCount(self, index):
+        return len(self._data)
+
+    def columnCount(self, index):
+        self._columns=[]
+        for d in self._data:
+            for k in d.keys():
+                if k not in self._columns:
+                    self._columns.append(k)
+
+        return len(self._columns)
+
+    def headerData(self, section, orientation, role):
+        if role==QtCore.Qt.DisplayRole:
+            if orientation==QtCore.Qt.Horizontal:
+                return self._columns[section]
+            elif orientation==QtCore.Qt.Vertical:
+                return section+1
+
+    def flags(self, index):
+        if index.column()==0:
+            return QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
+        else:
+            return QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEditable
+
+    def data(self, index, role):
+        if index.isValid():
+            # print(role)
+            r=index.row()
+            c=index.column()
+            column_name=self._columns[c]
+            value=self._data[r].get(column_name)
+            if role==QtCore.Qt.DisplayRole or role==QtCore.Qt.EditRole:
+                if value:
+                    return str(value)
+                else:
+                    return 'N/A'
+            
+            if role==QtCore.Qt.ForegroundRole:
+                if not value:
+                    return QtGui.QColor('#aaa')
+
+    def setData(self, index, value, role):
+        if index.isValid():
+            r=index.row()
+            current_row=self._data[r]
+            c=index.column()
+            column_name=self._columns[c]
+            
+            try:
+                real_value=eval(value)
+            except Exception as e:
+                if value=='N/A' or value=='':
+                    current_row.pop(column_name, None)
+                else:
+                    current_row[column_name]=value
+            else:
+                current_row[column_name]=real_value
+            
+            print(current_row)
+            ok=MongoOperation.update_row(current_row)
+            if ok:
+                self.dataChanged.emit(index, index, [QtCore.Qt.DisplayRole,])
+                return True
+            else:
+                return False
+        else:
+            return False
+
+    def custom_add_row(self):
+        row_count=len(self._data)
+        self.beginInsertRows(QtCore.QModelIndex(), row_count, row_count)
+        empty_row={column_name:None for column_name in self._columns if column_name !='_id'}
+        doc_id=MongoOperation.insert_row(empty_row)
+        new_row=MongoOperation.get_row(doc_id)
+        self._data.append(new_row)
+        self.endInsertRows()
+        # 末端添加行数据不会引起表结构改变；
+        # self.beginResetModel()
+        # self.endResetModel()        
+        return True
+
+    def custom_add_document(self, row):
+        row_count=len(self._data)
+        self.beginInsertRows(QtCore.QModelIndex(), row_count, row_count)
+
+        doc_id=MongoOperation.insert_row(row)
+        new_row=MongoOperation.get_row(doc_id)
+        self._data.append(new_row)
+        
+        self.endInsertRows()
+        # 加入dictionary可能引入表结构改变；更新表结构
+        self.beginResetModel()
+        self.endResetModel()        
+        return True
+
+    def custom_delete_rows(self, selected_indexes):
+        row_indexes=[index.row() for index in selected_indexes]
+        unique_row_indexes=sorted(set(row_indexes), reverse=True)
+
+        self.beginRemoveRows(QtCore.QModelIndex(),unique_row_indexes[-1], unique_row_indexes[0])
+
+        doc_ids=[self._data[row_index]['_id'] for row_index in unique_row_indexes]
+        MongoOperation.delete_rows(doc_ids)
+        
+        # print(unique_row_indexes)
+        for index in unique_row_indexes:
+            self._data.pop(index)
+
+        self.endRemoveRows()
+        # 删除行数据可能引起表结构改变；更新表结构
+        self.beginResetModel()
+        self.endResetModel()
+        return True
+```
+
+```py
+# MongoOperation.py
+import pymongo
+from bson import ObjectId
+
+CLI=pymongo.MongoClient('mongodb://grey:xxxxxx@localhost:27017')
+COLLECTION=CLI.irradiation.data
+
+def get_data_list():
+    # return list(COLLECTION.find().limit(number))
+    return list(COLLECTION.find())
+
+def get_row(doc_id):
+    row=COLLECTION.find_one({'_id':ObjectId(doc_id)})
+    return row
+
+def update_row(row):
+    doc_id=ObjectId(row['_id'])
+    result=COLLECTION.replace_one({'_id':doc_id}, row, upsert=True)
+    return result.acknowledged
+
+def insert_row(row):
+    result=COLLECTION.insert_one(row)
+    return result.inserted_id
+
+def delete_rows(doc_ids):
+    for doc_id in doc_ids:
+        COLLECTION.delete_one({'_id': doc_id})
 ```
