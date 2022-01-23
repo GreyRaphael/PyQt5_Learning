@@ -1,9 +1,15 @@
 # PyQt5 Introduction
 
 - [PyQt5 Introduction](#pyqt5-introduction)
+  - [Introduction](#introduction)
   - [simple example with QtDesigner](#simple-example-with-qtdesigner)
   - [PyQt5 with matplotlib](#pyqt5-with-matplotlib)
   - [PyQt5 Multiple windows](#pyqt5-multiple-windows)
+
+## Introduction
+
+- [PyQt5 Documentation](https://srinikom.github.io/pyside-docs/contents.html)
+- [PySide2 Documentation](https://srinikom.github.io/pyside-docs/contents.html)
 
 ## simple example with QtDesigner
 
@@ -341,7 +347,10 @@ if __name__ == "__main__":
 ## PyQt5 Multiple windows
 
 目标：窗口1实现button, tableview; 窗口2实现tableview右键编辑功能; 两个窗口数据共享
-> ![](img/multi-win01.jpg)
+- [Creating additional windows](https://www.pythonguis.com/tutorials/creating-multiple-windows/)  
+- [Displaying tabular data in Qt5 ModelViews](https://www.pythonguis.com/tutorials/qtableview-modelviews-numpy-pandas/) 
+- [enable editing on a QTableView](https://www.pythonguis.com/faq/editing-pyqt-tableview/)
+> ![](img/multi-win01.jpg)  
 
 ```bash
 main.py
